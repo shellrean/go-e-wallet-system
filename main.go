@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/gofiber/fiber/v2"
 	"shellrean.id/belajar-auth/internal/api"
 	"shellrean.id/belajar-auth/internal/component"
 	"shellrean.id/belajar-auth/internal/config"
@@ -17,7 +16,8 @@ func main() {
 
 	userRepository := repository.NewUser(dbConnection)
 
-	userService := service.NewUser(userRepository, cacheConnection)
+	emailService := service.NewEmail(cnf)
+	userService := service.NewUser(userRepository, cacheConnection, emailService)
 
 	authMid := middleware.Authenticate(userService)
 
