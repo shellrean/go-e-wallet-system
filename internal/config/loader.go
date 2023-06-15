@@ -30,5 +30,9 @@ func Get() *Config {
 			User:     os.Getenv("MAIL_USER"),
 			Password: os.Getenv("MAIL_PASS"),
 		},
+		Redis{
+			Addr: os.Getenv("REDIS_ADDR"),
+			Pass: os.Getenv("REDIS_PASS"),
+		},
 	}
 }
