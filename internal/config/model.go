@@ -4,6 +4,12 @@ type Config struct {
 	Server   Server
 	Database Database
 	Mail     Email
+	Redis    Redis
+}
+
+type Redis struct {
+	Addr string
+	Pass string
 }
 
 type Server struct {
