@@ -2,18 +2,24 @@ package main
 
 import (
 	"github.com/gofiber/fiber/v2"
+	"shellrean.id/belajar-auth/dto"
 	"shellrean.id/belajar-auth/internal/api"
 	"shellrean.id/belajar-auth/internal/component"
 	"shellrean.id/belajar-auth/internal/config"
 	"shellrean.id/belajar-auth/internal/middleware"
 	"shellrean.id/belajar-auth/internal/repository"
 	"shellrean.id/belajar-auth/internal/service"
+	"shellrean.id/belajar-auth/internal/sse"
 )
 
 func main() {
 	cnf := config.Get()
 	dbConnection := component.GetDatabaseConnection(cnf)
 	cacheConnection := repository.NewRedisClient(cnf)
+
+	hub := &dto.Hub{
+		NotificationChannel: map[int64]chan dto.NotificationData{},
+	}
 
 	userRepository := repository.NewUser(dbConnection)
 	accountRepository := repository.NewAccount(dbConnection)
@@ -22,7 +28,7 @@ func main() {
 
 	emailService := service.NewEmail(cnf)
 	userService := service.NewUser(userRepository, cacheConnection, emailService)
-	transactionService := service.NewTransaction(accountRepository, transactionRepository, cacheConnection, notificationRepository)
+	transactionService := service.NewTransaction(accountRepository, transactionRepository, cacheConnection, notificationRepository, hub)
 	notificationService := service.NewNotification(notificationRepository)
 
 	authMid := middleware.Authenticate(userService)
@@ -31,6 +37,8 @@ func main() {
 	api.NewAuth(app, userService, authMid)
 	api.NewTransfer(app, authMid, transactionService)
 	api.NewNotification(app, authMid, notificationService)
+
+	sse.NewNotification(app, authMid, hub)
 
 	_ = app.Listen(cnf.Server.Host + ":" + cnf.Server.Port)
 }

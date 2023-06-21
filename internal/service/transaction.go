@@ -15,17 +15,20 @@ type transactionService struct {
 	transactionRepository  domain.TransactionRepository
 	cacheRepository        domain.CacheRepository
 	notificationRepository domain.NotificationRepository
+	hub                    *dto.Hub
 }
 
 func NewTransaction(accountRepository domain.AccountRepository,
 	transactionRepository domain.TransactionRepository,
 	cacheRepository domain.CacheRepository,
-	notificationRepository domain.NotificationRepository) domain.TransactionService {
+	notificationRepository domain.NotificationRepository,
+	hub *dto.Hub) domain.TransactionService {
 	return &transactionService{
 		accountRepository:      accountRepository,
 		transactionRepository:  transactionRepository,
 		cacheRepository:        cacheRepository,
 		notificationRepository: notificationRepository,
+		hub:                    hub,
 	}
 }
 
@@ -146,5 +149,26 @@ func (t transactionService) notificationAfterTransfer(sofAccount domain.Account,
 		CreatedAt: time.Now(),
 	}
 	_ = t.notificationRepository.Insert(context.Background(), &notificationSender)
+	if channel, ok := t.hub.NotificationChannel[sofAccount.UserId]; ok {
+		channel <- dto.NotificationData{
+			ID:        notificationSender.ID,
+			Title:     notificationSender.Title,
+			Body:      notificationSender.Body,
+			Status:    notificationSender.Status,
+			IsRead:    notificationSender.IsRead,
+			CreatedAt: notificationSender.CreatedAt,
+		}
+	}
+
 	_ = t.notificationRepository.Insert(context.Background(), &notificationReceiver)
+	if channel, ok := t.hub.NotificationChannel[dofAccount.UserId]; ok {
+		channel <- dto.NotificationData{
+			ID:        notificationReceiver.ID,
+			Title:     notificationReceiver.Title,
+			Body:      notificationReceiver.Body,
+			Status:    notificationReceiver.Status,
+			IsRead:    notificationReceiver.IsRead,
+			CreatedAt: notificationReceiver.CreatedAt,
+		}
+	}
 }
