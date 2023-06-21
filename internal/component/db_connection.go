@@ -24,12 +24,12 @@ func GetDatabaseConnection(cnf *config.Config) *sql.DB {
 
 	connection, err := sql.Open("postgres", dsn)
 	if err != nil {
-		log.Fatal("error when open connection %s", err.Error())
+		log.Fatalf("error when open connection %s", err.Error())
 	}
 
 	err = connection.Ping()
 	if err != nil {
-		log.Fatal("error when open connection %s", err.Error())
+		log.Fatalf("error when open connection %s", err.Error())
 	}
 
 	return connection
