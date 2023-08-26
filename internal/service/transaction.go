@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"shellrean.id/belajar-auth/domain"
 	"shellrean.id/belajar-auth/dto"
+	"shellrean.id/belajar-auth/internal/component"
 	"shellrean.id/belajar-auth/internal/util"
 	"time"
 )
@@ -64,6 +65,8 @@ func (t transactionService) TransferInquiry(ctx context.Context, req dto.Transfe
 }
 
 func (t transactionService) TransferExecute(ctx context.Context, req dto.TransferExecuteReq) error {
+	component.Log.Info("Starting execution transfer")
+
 	val, err := t.cacheRepository.Get(req.InquiryKey)
 	if err != nil {
 		return domain.ErrInquiryNotFound
@@ -86,6 +89,7 @@ func (t transactionService) TransferExecute(ctx context.Context, req dto.Transfe
 		return err
 	}
 
+	component.Log.Debugf("%s to %s", myAccount.AccountNumber, dofAccount.AccountNumber)
 	debitTransaction := domain.Transaction{
 		AccountId:           myAccount.ID,
 		SofNumber:           myAccount.AccountNumber,
