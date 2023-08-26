@@ -21,8 +21,6 @@ func main() {
 		NotificationChannel: map[int64]chan dto.NotificationData{},
 	}
 
-	component.Log.Info("Application hello world")
-
 	userRepository := repository.NewUser(dbConnection)
 	accountRepository := repository.NewAccount(dbConnection)
 	transactionRepository := repository.NewTransaction(dbConnection)
