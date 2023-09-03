@@ -1,25 +1,31 @@
 package service
 
 import (
-	"net/smtp"
+	"encoding/json"
 	"shellrean.id/belajar-auth/domain"
+	"shellrean.id/belajar-auth/dto"
 	"shellrean.id/belajar-auth/internal/config"
 )
 
 type emailService struct {
-	cnf *config.Config
+	cnf          *config.Config
+	queueService domain.QueueService
 }
 
-func NewEmail(cnf *config.Config) domain.EmailService {
-	return &emailService{cnf}
+func NewEmail(cnf *config.Config, queueService domain.QueueService) domain.EmailService {
+	return &emailService{cnf, queueService}
 }
 
 func (e emailService) Send(to, subject, body string) error {
-	auth := smtp.PlainAuth("", e.cnf.Mail.User, e.cnf.Mail.Password, e.cnf.Mail.Host)
-	msg := []byte("From: shellrean <" + e.cnf.Mail.User + ">\n" +
-		"To: " + to + "\n" +
-		"Subject: " + subject + "\n" +
-		body)
+	payload := dto.EmailSendReq{
+		To:      to,
+		Subject: subject,
+		Body:    body,
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
 
-	return smtp.SendMail(e.cnf.Mail.Host+":"+e.cnf.Mail.Port, auth, e.cnf.Mail.User, []string{to}, msg)
+	return e.queueService.Enqueue("send:email", data, 3)
 }

@@ -30,7 +30,8 @@ func main() {
 	factorRepository := repository.NewFactor(dbConnection)
 	loginLogRepository := repository.NewLoginLog(dbConnection)
 
-	emailService := service.NewEmail(cnf)
+	queueService := service.NewQueue(cnf)
+	emailService := service.NewEmail(cnf, queueService)
 	userService := service.NewUser(userRepository, cacheConnection, emailService)
 	notificationService := service.NewNotification(notificationRepository, templateRepository, hub)
 	transactionService := service.NewTransaction(accountRepository, transactionRepository, cacheConnection, notificationService)

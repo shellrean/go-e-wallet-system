@@ -5,6 +5,7 @@ type Config struct {
 	Database Database
 	Mail     Email
 	Redis    Redis
+	Queue    Redis
 	Midtrans Midtrans
 }
 
