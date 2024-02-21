@@ -6,3 +6,5 @@ Feature
 - Redis Cache
 - Core Transfer
 - TopUp with Midtrans Payment Gateway
+- OTP System
+- Email System
