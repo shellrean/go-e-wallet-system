@@ -12,18 +12,24 @@ import (
 )
 
 type userService struct {
-	userRepository  domain.UserRepository
-	cacheRepository domain.CacheRepository
-	emailService    domain.EmailService
+	userRepository    domain.UserRepository
+	accountRepository domain.AccountRepository
+	factorRepository  domain.FactorRepository
+	cacheRepository   domain.CacheRepository
+	emailService      domain.EmailService
 }
 
 func NewUser(userRepository domain.UserRepository,
+	accountRepository domain.AccountRepository,
+	factorRepository domain.FactorRepository,
 	cacheRepository domain.CacheRepository,
 	emailService domain.EmailService) domain.UserService {
 	return &userService{
-		userRepository:  userRepository,
-		cacheRepository: cacheRepository,
-		emailService:    emailService,
+		userRepository:    userRepository,
+		accountRepository: accountRepository,
+		factorRepository:  factorRepository,
+		cacheRepository:   cacheRepository,
+		emailService:      emailService,
 	}
 }
 
@@ -45,10 +51,21 @@ func (u userService) Authenticate(ctx context.Context, req dto.AuthReq) (dto.Aut
 		return dto.AuthRes{}, domain.ErrAuthFailed
 	}
 
-	token := util.GenerateRandomString(16)
+	token := util.GenerateRandomString(32)
 
-	userJson, _ := json.Marshal(user)
-	_ = u.cacheRepository.Set("user:"+token, userJson)
+	userData := dto.UserData{
+		ID:       user.ID,
+		FullName: user.FullName,
+		Phone:    user.Phone,
+		Username: user.Username,
+	}
+	userJson, err := json.Marshal(userData)
+	if err != nil {
+		return dto.AuthRes{}, err
+	}
+	if err := u.cacheRepository.Set("user:"+token, userJson); err != nil {
+		return dto.AuthRes{}, err
+	}
 
 	return dto.AuthRes{
 		Token: token,
@@ -60,15 +77,12 @@ func (u userService) ValidateToken(ctx context.Context, token string) (dto.UserD
 	if err != nil {
 		return dto.UserData{}, domain.ErrAuthFailed
 	}
-	var user domain.User
-	_ = json.Unmarshal(data, &user)
+	var user dto.UserData
+	if err := json.Unmarshal(data, &user); err != nil || user.ID == 0 {
+		return dto.UserData{}, domain.ErrAuthFailed
+	}
 
-	return dto.UserData{
-		ID:       user.ID,
-		FullName: user.FullName,
-		Phone:    user.Phone,
-		Username: user.Username,
-	}, nil
+	return user, nil
 }
 
 func (u userService) Register(ctx context.Context, req dto.UserRegisterReq) (dto.UserRegisterRes, error) {
@@ -82,7 +96,10 @@ func (u userService) Register(ctx context.Context, req dto.UserRegisterReq) (dto
 		return dto.UserRegisterRes{}, domain.ErrUsernameTaken
 	}
 
-	hashedPass, _ := bcrypt.GenerateFromPassword([]byte(req.Password), 12)
+	hashedPass, err := bcrypt.GenerateFromPassword([]byte(req.Password), 12)
+	if err != nil {
+		return dto.UserRegisterRes{}, err
+	}
 
 	user := domain.User{
 		FullName: req.FullName,
@@ -91,7 +108,39 @@ func (u userService) Register(ctx context.Context, req dto.UserRegisterReq) (dto
 		Username: req.Username,
 		Password: string(hashedPass),
 	}
-	err = u.userRepository.Insert(ctx, &user)
+
+	err = domain.RunInTransaction(ctx, u.userRepository, func(txCtx context.Context) error {
+		if err := u.userRepository.Insert(txCtx, &user); err != nil {
+			return err
+		}
+
+		if u.accountRepository != nil {
+			account := domain.Account{
+				UserId:        user.ID,
+				AccountNumber: util.GenerateRandomNumber(10),
+				Balance:       0,
+			}
+			if err := u.accountRepository.Insert(txCtx, &account); err != nil {
+				return err
+			}
+		}
+
+		if u.factorRepository != nil && req.PIN != "" {
+			hashedPin, err := bcrypt.GenerateFromPassword([]byte(req.PIN), 12)
+			if err != nil {
+				return err
+			}
+			factor := domain.Factor{
+				UserID: user.ID,
+				PIN:    string(hashedPin),
+			}
+			if err := u.factorRepository.Insert(txCtx, &factor); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 	if err != nil {
 		log.Printf("error: %s", err.Error())
 		return dto.UserRegisterRes{}, err
@@ -100,10 +149,18 @@ func (u userService) Register(ctx context.Context, req dto.UserRegisterReq) (dto
 	otpCode := util.GenerateRandomNumber(4)
 	referenceId := util.GenerateRandomString(16)
 
-	_ = u.emailService.Send(req.Email, "OTP Code", "otp anda "+otpCode)
+	if err := u.cacheRepository.Set("otp:"+referenceId, []byte(otpCode)); err != nil {
+		return dto.UserRegisterRes{}, err
+	}
+	if err := u.cacheRepository.Set("user-ref:"+referenceId, []byte(user.Username)); err != nil {
+		return dto.UserRegisterRes{}, err
+	}
 
-	_ = u.cacheRepository.Set("otp:"+referenceId, []byte(otpCode))
-	_ = u.cacheRepository.Set("user-ref:"+referenceId, []byte(user.Username))
+	if err := u.emailService.Send(req.Email, "OTP Code", "otp anda "+otpCode); err != nil {
+		log.Printf("error sending otp email: %s", err.Error())
+		return dto.UserRegisterRes{}, err
+	}
+
 	return dto.UserRegisterRes{
 		ReferenceID: referenceId,
 	}, nil
@@ -126,7 +183,16 @@ func (u userService) ValidateOTP(ctx context.Context, req dto.ValidateOtpReq) er
 	if err != nil {
 		return err
 	}
+	if user == (domain.User{}) {
+		return domain.ErrOtpInvalid
+	}
+
 	user.EmailVerifiedAt = time.Now()
-	_ = u.userRepository.Update(ctx, &user)
+	if err := u.userRepository.Update(ctx, &user); err != nil {
+		return err
+	}
+
+	_ = u.cacheRepository.Delete("otp:" + req.ReferenceID)
+	_ = u.cacheRepository.Delete("user-ref:" + req.ReferenceID)
 	return nil
 }

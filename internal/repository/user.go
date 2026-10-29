@@ -17,8 +17,12 @@ func NewUser(con *sql.DB) domain.UserRepository {
 	}
 }
 
+func (u *userRepository) WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
+	return withTransaction(ctx, u.db, fn)
+}
+
 func (u userRepository) FindByID(ctx context.Context, id int64) (user domain.User, err error) {
-	dataset := u.db.From("users").Where(goqu.Ex{
+	dataset := getExecutor(ctx, u.db).From("users").Where(goqu.Ex{
 		"id": id,
 	})
 	_, err = dataset.ScanStructContext(ctx, &user)
@@ -26,7 +30,7 @@ func (u userRepository) FindByID(ctx context.Context, id int64) (user domain.Use
 }
 
 func (u userRepository) FindByUsername(ctx context.Context, username string) (user domain.User, err error) {
-	dataset := u.db.From("users").Where(goqu.Ex{
+	dataset := getExecutor(ctx, u.db).From("users").Where(goqu.Ex{
 		"username": username,
 	})
 	_, err = dataset.ScanStructContext(ctx, &user)
@@ -34,7 +38,7 @@ func (u userRepository) FindByUsername(ctx context.Context, username string) (us
 }
 
 func (u userRepository) Insert(ctx context.Context, user *domain.User) error {
-	executor := u.db.Insert("users").Rows(goqu.Record{
+	executor := getExecutor(ctx, u.db).Insert("users").Rows(goqu.Record{
 		"full_name": user.FullName,
 		"username":  user.Username,
 		"password":  user.Password,
@@ -51,7 +55,7 @@ func (u userRepository) Update(ctx context.Context, user *domain.User) error {
 		Valid: true,
 	}
 
-	executor := u.db.Update("users").Where(goqu.Ex{
+	executor := getExecutor(ctx, u.db).Update("users").Where(goqu.Ex{
 		"id": user.ID,
 	}).Set(goqu.Record{
 		"full_name":         user.FullName,

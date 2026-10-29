@@ -17,8 +17,12 @@ func NewTransaction(con *sql.DB) domain.TransactionRepository {
 	}
 }
 
+func (t *transactionRepository) WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
+	return withTransaction(ctx, t.db, fn)
+}
+
 func (t transactionRepository) Insert(ctx context.Context, transaction *domain.Transaction) error {
-	executor := t.db.Insert("transactions").Rows(goqu.Record{
+	executor := getExecutor(ctx, t.db).Insert("transactions").Rows(goqu.Record{
 		"account_id":           transaction.AccountId,
 		"sof_number":           transaction.SofNumber,
 		"dof_number":           transaction.DofNumber,

@@ -51,7 +51,10 @@ func (t transferApi) TransferExecute(ctx *fiber.Ctx) error {
 		})
 	}
 
-	user := ctx.Locals("x-user").(dto.UserData)
+	user, ok := ctx.Locals("x-user").(dto.UserData)
+	if !ok {
+		return ctx.SendStatus(401)
+	}
 
 	if err := t.factorService.ValidatePIN(ctx.Context(), dto.ValidatePinReq{
 		PIN:    req.PIN,

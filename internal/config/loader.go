@@ -8,8 +8,8 @@ import (
 
 func Get() *Config {
 	err := godotenv.Load()
-	if err != nil {
-		log.Fatalf("error when load envi %s", err.Error())
+	if err != nil && !os.IsNotExist(err) {
+		log.Printf("warning: could not load .env file: %s", err.Error())
 	}
 
 	return &Config{

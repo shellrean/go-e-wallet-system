@@ -22,24 +22,42 @@ func NewNotification(app *fiber.App, authMid fiber.Handler, hub *dto.Hub) {
 
 func (n notificationSse) StreamNotification(ctx *fiber.Ctx) error {
 	ctx.Set("Content-Type", "text/event-stream")
+	ctx.Set("Cache-Control", "no-cache")
+	ctx.Set("Connection", "keep-alive")
 
-	user := ctx.Locals("x-user").(dto.UserData)
-	n.hub.NotificationChannel[user.ID] = make(chan dto.NotificationData)
+	user, ok := ctx.Locals("x-user").(dto.UserData)
+	if !ok {
+		return ctx.SendStatus(401)
+	}
+	ch := n.hub.Register(user.ID)
 
 	ctx.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
+		defer n.hub.Unregister(user.ID, ch)
+
 		event := fmt.Sprintf("event: %s\n"+
 			"data: \n\n", "initial")
-		_, _ = fmt.Fprint(w, event)
-		_ = w.Flush()
+		if _, err := fmt.Fprint(w, event); err != nil {
+			return
+		}
+		if err := w.Flush(); err != nil {
+			return
+		}
 
-		for notification := range n.hub.NotificationChannel[user.ID] {
-			data, _ := json.Marshal(notification)
+		for notification := range ch {
+			data, err := json.Marshal(notification)
+			if err != nil {
+				continue
+			}
 
 			event = fmt.Sprintf("event: %s\n"+
 				"data: %s\n\n", "notification-updated", data)
 
-			_, _ = fmt.Fprint(w, event)
-			_ = w.Flush()
+			if _, err := fmt.Fprint(w, event); err != nil {
+				return
+			}
+			if err := w.Flush(); err != nil {
+				return
+			}
 		}
 	})
 

@@ -18,7 +18,7 @@ func NewTemplate(conn *sql.DB) domain.TemplateRepository {
 }
 
 func (t templateRepository) FindByCode(ctx context.Context, code string) (temp domain.Template, err error) {
-	dataset := t.db.From("templates").Where(goqu.Ex{
+	dataset := getExecutor(ctx, t.db).From("templates").Where(goqu.Ex{
 		"code": code,
 	})
 	_, err = dataset.ScanStructContext(ctx, &temp)

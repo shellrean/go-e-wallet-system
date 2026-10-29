@@ -25,7 +25,10 @@ func (n notificationApi) GetUsersNotification(ctx *fiber.Ctx) error {
 	c, cancel := context.WithTimeout(ctx.Context(), 15*time.Second)
 	defer cancel()
 
-	user := ctx.Locals("x-user").(dto.UserData)
+	user, ok := ctx.Locals("x-user").(dto.UserData)
+	if !ok {
+		return ctx.SendStatus(401)
+	}
 
 	notification, err := n.notificationService.FindByUser(c, user.ID)
 	if err != nil {

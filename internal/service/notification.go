@@ -3,7 +3,6 @@ package service
 import (
 	"bytes"
 	"context"
-	"errors"
 	"html/template"
 	"shellrean.id/belajar-auth/domain"
 	"shellrean.id/belajar-auth/dto"
@@ -56,11 +55,14 @@ func (n notificationService) Insert(ctx context.Context, userId int64, code stri
 		return err
 	}
 	if tmpl == (domain.Template{}) {
-		return errors.New("template not found")
+		return domain.ErrTemplateNotFound
 	}
 
 	body := new(bytes.Buffer)
-	t := template.Must(template.New("notif").Parse(tmpl.Body))
+	t, err := template.New("notif").Parse(tmpl.Body)
+	if err != nil {
+		return err
+	}
 	err = t.Execute(body, data)
 	if err != nil {
 		return err
@@ -79,15 +81,15 @@ func (n notificationService) Insert(ctx context.Context, userId int64, code stri
 		return err
 	}
 
-	if channel, ok := n.hub.NotificationChannel[userId]; ok {
-		channel <- dto.NotificationData{
+	if n.hub != nil {
+		n.hub.Publish(userId, dto.NotificationData{
 			ID:        notification.ID,
 			Title:     notification.Title,
 			Body:      notification.Body,
 			Status:    notification.Status,
 			IsRead:    notification.IsRead,
 			CreatedAt: notification.CreatedAt,
-		}
+		})
 	}
 
 	return nil

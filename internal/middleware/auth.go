@@ -9,7 +9,11 @@ import (
 
 func Authenticate(userService domain.UserService) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
-		token := strings.ReplaceAll(ctx.Get("Authorization"), "Bearer ", "")
+		authHeader := strings.TrimSpace(ctx.Get("Authorization"))
+		if strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
+			authHeader = strings.TrimSpace(authHeader[7:])
+		}
+		token := authHeader
 		if token == "" {
 			return ctx.SendStatus(401)
 		}

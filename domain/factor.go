@@ -13,6 +13,7 @@ type Factor struct {
 
 type FactorRepository interface {
 	FindByUser(ctx context.Context, id int64) (Factor, error)
+	Insert(ctx context.Context, factor *Factor) error
 }
 
 type FactorService interface {

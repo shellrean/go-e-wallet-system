@@ -25,7 +25,10 @@ func (t topUpApi) InitializeTopUp(ctx *fiber.Ctx) error {
 		return ctx.SendStatus(400)
 	}
 
-	user := ctx.Locals("x-user").(dto.UserData)
+	user, ok := ctx.Locals("x-user").(dto.UserData)
+	if !ok {
+		return ctx.SendStatus(401)
+	}
 	req.UserID = user.ID
 
 	res, err := t.topUpService.InitializeTopUp(ctx.Context(), req)

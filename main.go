@@ -17,9 +17,7 @@ func main() {
 	dbConnection := component.GetDatabaseConnection(cnf)
 	cacheConnection := repository.NewRedisClient(cnf)
 
-	hub := &dto.Hub{
-		NotificationChannel: map[int64]chan dto.NotificationData{},
-	}
+	hub := dto.NewHub()
 
 	userRepository := repository.NewUser(dbConnection)
 	accountRepository := repository.NewAccount(dbConnection)
@@ -30,7 +28,7 @@ func main() {
 	factorRepository := repository.NewFactor(dbConnection)
 
 	emailService := service.NewEmail(cnf)
-	userService := service.NewUser(userRepository, cacheConnection, emailService)
+	userService := service.NewUser(userRepository, accountRepository, factorRepository, cacheConnection, emailService)
 	notificationService := service.NewNotification(notificationRepository, templateRepository, hub)
 	transactionService := service.NewTransaction(accountRepository, transactionRepository, cacheConnection, notificationService)
 	midtransService := service.NewMidtrans(cnf)

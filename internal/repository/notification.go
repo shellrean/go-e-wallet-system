@@ -18,7 +18,7 @@ func NewNotification(conn *sql.DB) domain.NotificationRepository {
 }
 
 func (n notificationRepository) FindByUser(ctx context.Context, user int64) (notifications []domain.Notification, err error) {
-	dataset := n.db.From("notifications").Where(goqu.Ex{
+	dataset := getExecutor(ctx, n.db).From("notifications").Where(goqu.Ex{
 		"user_id": user,
 	}).Order(goqu.I("created_at").Desc()).Limit(15)
 	err = dataset.ScanStructsContext(ctx, &notifications)
@@ -26,7 +26,7 @@ func (n notificationRepository) FindByUser(ctx context.Context, user int64) (not
 }
 
 func (n notificationRepository) Insert(ctx context.Context, notification *domain.Notification) error {
-	executor := n.db.Insert("notifications").Rows(goqu.Record{
+	executor := getExecutor(ctx, n.db).Insert("notifications").Rows(goqu.Record{
 		"user_id":    notification.UserID,
 		"title":      notification.Title,
 		"body":       notification.Body,
@@ -39,7 +39,7 @@ func (n notificationRepository) Insert(ctx context.Context, notification *domain
 }
 
 func (n notificationRepository) Update(ctx context.Context, notification *domain.Notification) error {
-	executor := n.db.Update("notifications").Where(goqu.Ex{
+	executor := getExecutor(ctx, n.db).Update("notifications").Where(goqu.Ex{
 		"id": notification.ID,
 	}).Set(goqu.Record{
 		"title":   notification.Title,

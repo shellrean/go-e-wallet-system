@@ -19,6 +19,7 @@ func NewAuth(app *fiber.App, userService domain.UserService, authMid fiber.Handl
 	app.Post("token/generate", h.GenerateToken)
 	app.Get("token/validate", authMid, h.ValidateToken)
 	app.Post("user/register", h.RegisterUser)
+	app.Post("user/validate-otp", h.ValidateOTP)
 	app.Post("user/validate-opt", h.ValidateOTP)
 }
 

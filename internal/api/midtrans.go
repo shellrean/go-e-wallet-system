@@ -1,8 +1,11 @@
 package api
 
 import (
+	"errors"
 	"github.com/gofiber/fiber/v2"
 	"shellrean.id/belajar-auth/domain"
+	"shellrean.id/belajar-auth/dto"
+	"shellrean.id/belajar-auth/internal/util"
 )
 
 type midtransApi struct {
@@ -28,13 +31,23 @@ func (m midtransApi) paymentHandlerNotification(ctx *fiber.Ctx) error {
 	}
 
 	orderId, exists := notificationPayload["order_id"].(string)
-	if !exists {
+	if !exists || orderId == "" {
 		return ctx.SendStatus(400)
 	}
 
-	success, _ := m.midtransService.VerifyPayment(ctx.Context(), orderId)
+	success, err := m.midtransService.VerifyPayment(ctx.Context(), orderId)
+	if err != nil {
+		return ctx.Status(util.GetHttpStatus(err)).JSON(dto.Response{
+			Message: err.Error(),
+		})
+	}
 	if success {
-		_ = m.topUpService.ConfirmedTopUp(ctx.Context(), orderId)
+		err = m.topUpService.ConfirmedTopUp(ctx.Context(), orderId)
+		if err != nil && !errors.Is(err, domain.ErrTopUpAlreadyConfirmed) {
+			return ctx.Status(util.GetHttpStatus(err)).JSON(dto.Response{
+				Message: err.Error(),
+			})
+		}
 		return ctx.SendStatus(200)
 	}
 
